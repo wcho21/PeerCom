@@ -7,10 +7,15 @@ class PeerCom {
     this.connections = new Map();
     this.streams = new Map();
     this.onMediaConnectedCallback = () => { throw new Error('Callback function should be given.'); };
+    this.onMediaDisconnectedCallback = () => { throw new Error('Callback function should be given.') };
   }
 
   onMediaConnected(callback) {
     this.onMediaConnectedCallback = callback;
+  }
+
+  onMediaDisconnected(callback) {
+    this.onMediaDisconnectedCallback = callback;
   }
 
   #createPeerConnection(remoteSocketId) {
@@ -30,7 +35,7 @@ class PeerCom {
       const [remoteStream] = event.streams;
 
       this.streams.set(remoteSocketId, remoteStream);
-      this.onMediaConnectedCallback(remoteStream);
+      this.onMediaConnectedCallback(remoteSocketId, remoteStream);
     });
 
     this.userMediaStream.getTracks().forEach(track => pc.addTrack(track, this.userMediaStream));
@@ -86,6 +91,13 @@ class PeerCom {
       console.log('send ice');
       pc.addIceCandidate(ice);
     });
+
+    this.signalingServerSocket.on('__peercom_peer_disconnected', remoteSocketId => {
+      this.connections.delete(remoteSocketId);
+      this.streams.delete(remoteSocketId);
+
+      this.onMediaDisconnectedCallback(remoteSocketId);
+    })
 
     this.signalingServerSocket.emit('__peercom_join', this.roomId);
   }

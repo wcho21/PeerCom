@@ -21,8 +21,10 @@ const httpsServer = https.createServer(sslOptions, app);
 const wsServer = SocketIO(httpsServer);
 
 wsServer.on('connection', socket => {
+  console.log(socket.rooms);
   socket.on('__peercom_join', (roomId) => {
     socket.join(roomId);
+    console.log(socket.rooms);
     socket.to(roomId).emit('__peercom_new_peer_joined', socket.id);
   });
   socket.on('__peercom_offer', (offer, targetSocketId) => {
@@ -37,6 +39,11 @@ wsServer.on('connection', socket => {
     const senderSocketId = socket.id;
     socket.to(targetSocketId).emit('__peercom_receive_ice', ice, senderSocketId);
   });
+  socket.on('disconnecting', () => {
+    for (const roomId of socket.rooms) {
+      socket.to(roomId).emit('__peercom_peer_disconnected', socket.id)
+    }
+  })
 });
 
 const handleListen = () => { console.log(`Listening on 3000`)};

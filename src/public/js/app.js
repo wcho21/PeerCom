@@ -27,8 +27,9 @@ async function handlWelcomeSubmit(event) {
   await getMedia();
 
   // 사용자 측 코드
+  const streams = new Map();
   const peerCom = new PeerCom(socket, iceServerUrls, roomId, myStream);
-  peerCom.onMediaConnected((remoteStream) => {
+  peerCom.onMediaConnected((socketId, remoteStream) => {
     // 여기서 할일
     const video = document.createElement('video');
     video.width = "200";
@@ -36,8 +37,12 @@ async function handlWelcomeSubmit(event) {
     video.autoplay = true;
     video.srcObject = remoteStream;
     document.querySelector('#call').appendChild(video);
-    console.log(remoteStream);
+    streams.set(socketId, video);
   });
+  peerCom.onMediaDisconnected((socketId) => {
+    const video = streams.get(socketId);
+    video.remove();
+  })
   peerCom.connect();
 }
 welcomeForm.addEventListener('submit', handlWelcomeSubmit)
