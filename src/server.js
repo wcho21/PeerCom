@@ -21,20 +21,19 @@ const httpsServer = https.createServer(sslOptions, app);
 const wsServer = SocketIO(httpsServer);
 
 wsServer.on('connection', socket => {
-  socket.on('join_room', (roomName) => {
-    console.log('join', roomName);
-    socket.join(roomName);
-    socket.to(roomName).emit('welcome')
+  socket.on('__peercom_join', (roomId) => {
+    socket.join(roomId);
+    socket.to(roomId).emit('__peercom_new_peer_joined');
   });
-  socket.on('offer', (offer, roomName) => {
-    socket.to(roomName).emit('offer', offer);
+  socket.on('__peercom_offer', (offer, roomId) => {
+    socket.to(roomId).emit('__peercom_offered', offer);
   });
-  socket.on('answer', (answer, roomName) => {
-    socket.to(roomName).emit('answer', answer);
+  socket.on('__peercom_answer', (answer, roomId) => {
+    socket.to(roomId).emit('__peercom_answered', answer);
   });
-  socket.on('ice', (ice, roomName) => {
-    socket.to(roomName).emit('ice', ice);
-  })
+  socket.on('__peercom_send_ice', (ice, roomId) => {
+    socket.to(roomId).emit('__peercom_receive_ice', ice);
+  });
 });
 
 const handleListen = () => { console.log(`Listening on 3000`)};

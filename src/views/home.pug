@@ -17,9 +17,5 @@ html(lang="en")
       div#call
         div#myStream
           video#myFace(autoplay, playsinline, muted, width="200", height="200")
-          button#mute Unmute
-          button#camera Turn Camera Off
-          select#cameras
-          video#peerFace(autoplay, playsinline, muted, width="200", height="200")
     script(src="/socket.io/socket.io.js")
-    script(src="/public/js/app.js")
+    script(src="/public/js/app.js", type="module")
