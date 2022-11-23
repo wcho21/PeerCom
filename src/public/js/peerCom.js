@@ -43,6 +43,13 @@ class PeerCom {
     return pc;
   }
 
+  async #setVideoBitrate(pc, bitrate) {
+    const [videoSender] = pc.getSenders().filter(sender => sender.track.kind === 'video');
+    const params = videoSender.getParameters();
+    params.encodings[0].maxBitrate = bitrate;
+    await videoSender.setParameters(params);
+  }
+
   connect() {
     this.signalingServerSocket.on('__peercom_new_peer_joined', async (remoteSocketId) => {
       console.log('new peer joined', remoteSocketId)
@@ -74,6 +81,8 @@ class PeerCom {
       console.log('setLocalDescription');
       console.log('signaling state', pc.signalingState);
 
+      this.#setVideoBitrate(pc, 30000);
+
       this.signalingServerSocket.emit('__peercom_answer', answer, remoteSocketId);
       console.log('answer sent', answer);
     });
@@ -84,6 +93,8 @@ class PeerCom {
       await pc.setRemoteDescription(answer);
       console.log('setRemoteDescription');
       console.log('signaling state', pc.signalingState);
+
+      this.#setVideoBitrate(pc, 30000);
     });
 
     this.signalingServerSocket.on('__peercom_receive_ice', (ice, remoteSocketId) => {
