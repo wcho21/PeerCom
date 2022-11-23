@@ -23,16 +23,19 @@ const wsServer = SocketIO(httpsServer);
 wsServer.on('connection', socket => {
   socket.on('__peercom_join', (roomId) => {
     socket.join(roomId);
-    socket.to(roomId).emit('__peercom_new_peer_joined');
+    socket.to(roomId).emit('__peercom_new_peer_joined', socket.id);
   });
-  socket.on('__peercom_offer', (offer, roomId) => {
-    socket.to(roomId).emit('__peercom_offered', offer);
+  socket.on('__peercom_offer', (offer, targetSocketId) => {
+    const senderSocketId = socket.id;
+    socket.to(targetSocketId).emit('__peercom_offered', offer, senderSocketId);
   });
-  socket.on('__peercom_answer', (answer, roomId) => {
-    socket.to(roomId).emit('__peercom_answered', answer);
+  socket.on('__peercom_answer', (answer, targetSocketId) => {
+    const senderSocketId = socket.id;
+    socket.to(targetSocketId).emit('__peercom_answered', answer, senderSocketId);
   });
-  socket.on('__peercom_send_ice', (ice, roomId) => {
-    socket.to(roomId).emit('__peercom_receive_ice', ice);
+  socket.on('__peercom_send_ice', (ice, targetSocketId) => {
+    const senderSocketId = socket.id;
+    socket.to(targetSocketId).emit('__peercom_receive_ice', ice, senderSocketId);
   });
 });
 

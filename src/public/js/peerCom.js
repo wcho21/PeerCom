@@ -4,53 +4,87 @@ class PeerCom {
     this.iceServerUrls = iceServerUrls;
     this.roomId = roomId;
     this.userMediaStream = userMediaStream;
-    this.pc;
-    this.onMediaConnectedCallback = () => { throw new Error('No callback is given'); };
+    this.connections = new Map();
+    this.streams = new Map();
+    this.onMediaConnectedCallback = () => { throw new Error('Callback function should be given.'); };
   }
 
   onMediaConnected(callback) {
     this.onMediaConnectedCallback = callback;
   }
 
-  connect() {
-    const rtcPeerConnectionOptions = {
+  #createPeerConnection(remoteSocketId) {
+    const pcOptions = {
       iceServers: [ { urls: this.iceServerUrls }],
     };
-    this.pc = new RTCPeerConnection(rtcPeerConnectionOptions);
-    this.userMediaStream.getTracks().forEach(track => this.pc.addTrack(track, this.userMediaStream));
+    const pc = new RTCPeerConnection(pcOptions);
 
-    this.pc.addEventListener('icecandidate', iceEvent => {
-      this.signalingServerSocket.emit('__peercom_send_ice', iceEvent.candidate, this.roomId);
+    pc.addEventListener('icecandidate', iceEvent => {
+      this.signalingServerSocket.emit('__peercom_send_ice', iceEvent.candidate, remoteSocketId);
     });
+    pc.addEventListener('track', async (event) => {
+      if (this.streams.has(remoteSocketId)) {
+        return;
+      }
 
-    this.pc.addEventListener('track', async (event) => {
       const [remoteStream] = event.streams;
 
-      this.onMediaConnectedCallback(remoteStream)
+      this.streams.set(remoteSocketId, remoteStream);
+      this.onMediaConnectedCallback(remoteStream);
     });
 
-    this.signalingServerSocket.on('__peercom_new_peer_joined', async () => {
-      const offer = await this.pc.createOffer();
-      this.pc.setLocalDescription(offer);
+    this.userMediaStream.getTracks().forEach(track => pc.addTrack(track, this.userMediaStream));
 
-      this.signalingServerSocket.emit('__peercom_offer', offer, this.roomId);
+    return pc;
+  }
+
+  connect() {
+    this.signalingServerSocket.on('__peercom_new_peer_joined', async (remoteSocketId) => {
+      console.log('new peer joined', remoteSocketId)
+      const pc = this.#createPeerConnection(remoteSocketId);
+      this.connections.set(remoteSocketId, pc);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      console.log('setLocalDescription');
+      console.log('signaling state', pc.signalingState);
+
+      this.signalingServerSocket.emit('__peercom_offer', pc.localDescription, remoteSocketId);
+      console.log('offer sent', offer);
     });
 
-    this.signalingServerSocket.on('__peercom_offered', async (offer) => {
-      this.pc.setRemoteDescription(offer);
+    this.signalingServerSocket.on('__peercom_offered', async (offer, remoteSocketId) => {
+      console.log('remoteSocketId', remoteSocketId);
+      console.log('offer received', offer)
 
-      const answer = await this.pc.createAnswer();
-      this.pc.setLocalDescription(answer);
+      const pc = this.#createPeerConnection(remoteSocketId);
+      this.connections.set(remoteSocketId, pc);
 
-      this.signalingServerSocket.emit('__peercom_answer', answer, this.roomId);
+      await pc.setRemoteDescription(offer);
+      console.log('setRemoteDescription');
+      console.log('signaling state', pc.signalingState);
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      console.log('setLocalDescription');
+      console.log('signaling state', pc.signalingState);
+
+      this.signalingServerSocket.emit('__peercom_answer', answer, remoteSocketId);
+      console.log('answer sent', answer);
     });
 
-    this.signalingServerSocket.on('__peercom_answered', async (answer) => {
-      this.pc.setRemoteDescription(answer);
+    this.signalingServerSocket.on('__peercom_answered', async (answer, remoteSocketId) => {
+      console.log('answer received', answer);
+      const pc = this.connections.get(remoteSocketId);
+      await pc.setRemoteDescription(answer);
+      console.log('setRemoteDescription');
+      console.log('signaling state', pc.signalingState);
     });
 
-    this.signalingServerSocket.on('__peercom_receive_ice', ice => {
-      this.pc.addIceCandidate(ice);
+    this.signalingServerSocket.on('__peercom_receive_ice', (ice, remoteSocketId) => {
+      const pc = this.connections.get(remoteSocketId);
+      console.log('send ice');
+      pc.addIceCandidate(ice);
     });
 
     this.signalingServerSocket.emit('__peercom_join', this.roomId);

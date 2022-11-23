@@ -30,6 +30,12 @@ async function handlWelcomeSubmit(event) {
   const peerCom = new PeerCom(socket, iceServerUrls, roomId, myStream);
   peerCom.onMediaConnected((remoteStream) => {
     // 여기서 할일
+    const video = document.createElement('video');
+    video.width = "200";
+    video.height = "200";
+    video.autoplay = true;
+    video.srcObject = remoteStream;
+    document.querySelector('#call').appendChild(video);
     console.log(remoteStream);
   });
   peerCom.connect();
